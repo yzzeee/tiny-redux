@@ -124,3 +124,74 @@ console.log(store.getState());
 
 스토어는 리덕스가 제공하는 도구들을 모아놓은 일종의 도구 박스 같다.
 상태를 바꾸기 위해 사용자가 요청할 때 사용하기위한 dispatch 함수, store 안의 상태를 갖기위한 getState 함수를 가지고 있다.
+
+**3. 스토어 구독**
+여기까지 보면 store에 dispatch 후에 getState를 하는 시점을 컴포넌트가 알고 있어서 상태를 가져올 수 있었다.<br/>
+그런데 스토어는 다른 앱도 함께 사용하는 전역 객체인데 다른 컴포넌트가 dispatch 했을 때는 어떻게 알 수 있을까.<br/>
+그래서 console.log(store.getState()); 부분을 스토어의 상태가 바뀌었을 때 실행 되도록 변경해본다.<br/>
+
+이는 마치 우리가 이벤트 시스템에서 어떤 버튼에 클릭 이벤트 핸들러를 직접 달아주는 것과 비슷하게 동작해야한다.<br/>
+언제 사용자가 버튼을 클릭할 지 알 수 없기 때문이다.<br/>
+이러한 패턴을 소프트웨어 아키텍쳐에서 pub sub 패턴이라고 한다.<br/>
+사건이 발생하면 구독자에게 전달해주는 형태의 패턴이다.
+```javascript
+// redux.js
+export function createStore(INITIAL_STATE, reducer) {
+  let state;
+  const handler = [];
+
+  if (!state) {
+    state = INITIAL_STATE;
+  }
+
+  function dispatch(action) {
+    // state 변경을 앱이 원하는 시점에서 실행할 수 있도록 반환하는 state 변경 함수이다.
+    state = reducer(state, action);
+    handler.forEach(listener => {
+      listener();
+    });
+  }
+
+  function getState() {
+    return state;
+  }
+
+  function subscribe(listener) {
+    handler.push(listener);
+  }
+
+  return {
+    dispatch,
+    getState, // state를 바로 반환할 경우 값을 직접 참조하게 되므로 getter를 반환한다.
+    subscribe,
+  };
+}
+```
+
+```javascript
+import { createStore } from './redux.js';
+
+const INITIAL_STATE = { count: 0 };
+
+// 앱의 상태에 따라 원하는 시점에 스토어의 상태를 바꿔줄 함수이다.
+function reducer(state, action) {
+  switch (action.type) {
+    case 'ADD':
+      return { ...state, count: state.count + action.payload };
+    case 'SUBTRACT':
+      return { ...state, count: state.count - action.payload };
+    default:
+      console.log('해당 액션은 정의되지 않았습니다.');
+  }
+}
+
+const store = createStore(INITIAL_STATE, reducer);
+
+function listener() {
+  console.log(store.getState());
+}
+
+store.subscribe(listener);
+store.dispatch({ type: 'ADD', payload: 4 });
+store.dispatch({ type: 'SUBTRACT', payload: 7 });
+```
