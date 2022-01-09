@@ -1,8 +1,9 @@
 import { createStore } from './redux.js';
 
-const INITIAL_STATE = { count: 0 };
+const INITIAL_STATE = { count: 0, users: [] };
 const ADD = 'ADD';
 const SUBTRACT = 'SUBTRACT';
+const SET_USERS = 'SET_USERS';
 
 function actionCreator(type, payload) {
   return { type, payload };
@@ -15,8 +16,16 @@ function reducer(state, action) {
       return { ...state, count: state.count + action.payload };
     case SUBTRACT:
       return { ...state, count: state.count - action.payload };
+    case SET_USERS:
+      fetch('https://jsonplaceholder.typicode.com/users')
+        .then(response => response.json())
+        .then(users => {
+          return { ...state, users };
+        });
+      break;
     default:
       console.log('해당 액션은 정의되지 않았습니다.');
+      return state;
   }
 }
 
@@ -36,3 +45,5 @@ function dispatchAdd(data) {
 }
 
 dispatchAdd(7);
+
+store.dispatch(actionCreator(SET_USERS));

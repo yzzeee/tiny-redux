@@ -240,3 +240,63 @@ function dispatchAdd(data) {
 
 dispatchAdd(7);
 ```
+
+**5. 비동기 액션 다루기**
+
+만약에 액션이 비동기적으로 store 상태를 바꾸고자 한다면 어떻게 할까.<br/>
+우선은 비동기적인 액션을 만들어 보자.
+```javascript
+// index.js
+import { createStore } from './redux.js';
+
+const INITIAL_STATE = { count: 0, users: [] };
+const ADD = 'ADD';
+const SUBTRACT = 'SUBTRACT';
+const SET_USERS = 'SET_USERS';
+
+function actionCreator(type, payload) {
+  return { type, payload };
+}
+
+// 앱의 상태에 따라 원하는 시점에 스토어의 상태를 바꿔줄 함수이다.
+function reducer(state, action) {
+  switch (action.type) {
+    case ADD:
+      return { ...state, count: state.count + action.payload };
+    case SUBTRACT:
+      return { ...state, count: state.count - action.payload };
+    case SET_USERS:
+      fetch('https://jsonplaceholder.typicode.com/users')
+        .then(response => response.json())
+        .then(users => {
+          return { ...state, users };
+        });
+      break;
+    default:
+      console.log('해당 액션은 정의되지 않았습니다.');
+      return state;
+  }
+}
+
+const store = createStore(INITIAL_STATE, reducer);
+
+function listener() {
+  console.log(store.getState());
+}
+
+store.subscribe(listener);
+
+store.dispatch(actionCreator(ADD, 4));
+store.dispatch(actionCreator(SUBTRACT, 7));
+
+function dispatchAdd(data) {
+  store.dispatch(actionCreator(ADD, data));
+}
+
+dispatchAdd(7);
+
+store.dispatch(actionCreator(SET_USERS));
+```
+
+비동기 액션인 SET_USERS를 만들었고 액션이 정상적으로 동작하였지만, 스토어의 상태는 생각했던 것처럼 업데이트 되지 않는다.
+않고 스토어가 undefined가 되어버린다. 따라서 비동기 액션을 처리 하기 위해서는 다른 무언가가 필요하다는 것을 알 수 있다.
