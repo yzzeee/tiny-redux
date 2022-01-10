@@ -300,3 +300,112 @@ store.dispatch(actionCreator(SET_USERS));
 
 비동기 액션인 SET_USERS를 만들었고 액션이 정상적으로 동작하였지만, 스토어의 상태는 생각했던 것처럼 업데이트 되지 않는다.
 않고 스토어가 undefined가 되어버린다. 따라서 비동기 액션을 처리 하기 위해서는 다른 무언가가 필요하다는 것을 알 수 있다.
+
+**6. middleware 구현**
+
+리덕스 자체만으로는 비동기 작업을 처리 할 수 없다.<br/>
+reducer에 비동기 액션을 처리하는 코드를 넣어 주었다 하더라도 상태값을 가져오는 로직은 비동기 적으로 이루어지지 않는다.<br/>
+따라서 리듀서의 동기적인 흐름이외에 여러가지 기능을 할수 있도록 리덕스에서 바깥쪽을 노출하고 있는 아키텍쳐인 미들웨어를 활용한다.
+
+```javascript
+// index.js
+import { createStore } from './redux.js';
+
+const INITIAL_STATE = { count: 0, users: [] };
+const ADD = 'ADD';
+const SUBTRACT = 'SUBTRACT';
+const SET_USERS = 'SET_USERS';
+const GET_USERS = 'GET_USERS';
+
+function actionCreator(type, payload) {
+  return { type, payload };
+}
+
+const middleware = state => dispatch => action => {
+  switch (action.type) {
+    case GET_USERS:
+      fetch('https://jsonplaceholder.typicode.com/users')
+        .then(response => response.json())
+        .then(users => {
+          dispatch(actionCreator(SET_USERS, users));
+        });
+      break;
+    default:
+      dispatch(action);
+  }
+};
+
+// 앱의 상태에 따라 원하는 시점에 스토어의 상태를 바꿔줄 함수이다.
+function reducer(state, action) {
+  switch (action.type) {
+    case ADD:
+      return { ...state, count: state.count + action.payload };
+    case SUBTRACT:
+      return { ...state, count: state.count - action.payload };
+    case SET_USERS:
+      return { ...state, users: action.payload };
+    default:
+      console.log('해당 액션은 정의되지 않았습니다.');
+      return state;
+  }
+}
+
+const store = createStore(INITIAL_STATE, reducer, middleware);
+
+function listener() {
+  console.log(store.getState());
+}
+
+store.subscribe(listener);
+
+store.dispatch(actionCreator(ADD, 4));
+store.dispatch(actionCreator(SUBTRACT, 7));
+
+function dispatchAdd(data) {
+  store.dispatch(actionCreator(ADD, data));
+}
+
+dispatchAdd(7);
+
+store.dispatch(actionCreator(GET_USERS));
+```
+
+사용자가 미들웨어를 생성하여 미들웨어에서 비동기 액션을 처리한다. 미들웨어는 삼단 함수로 구현한다.<br/>
+미들웨어는 스토어의 내부에서 state와 dispatch를 인자로 받아서 실행되고 action을 인자로 받는 함수를 반환한다.<br/>
+이 반환된 함수가 스토어의 진짜 dispatch를 대신하여 컴포넌트가 사용할 dispatch 함수로 반환된다.<br/>
+그리고 컴포넌트가 dispatch 할 때 비동기 액션은 미들웨어에서 처리되고 처리되지 않은 액션들은 진짜 dispatch에 전달된다.
+
+```javascript
+export function createStore(INITIAL_STATE, reducer, middleware) {
+  let state;
+  const handler = [];
+
+  if (!state) {
+    state = INITIAL_STATE;
+  }
+
+  function dispatch(action) {
+    // state 변경을 앱이 원하는 시점에서 실행할 수 있도록 반환하는 state 변경 함수이다.
+    state = reducer(state, action);
+    handler.forEach(listener => {
+      listener();
+    });
+  }
+
+  function getState() {
+    return state;
+  }
+
+  function subscribe(listener) {
+    handler.push(listener);
+  }
+
+  const lastDispatch = middleware(state)(dispatch);
+
+  return {
+    dispatch: lastDispatch,
+    getState, // state를 바로 반환할 경우 값을 직접 참조하게 되므로 getter를 반환한다.
+    subscribe,
+  };
+}
+```
