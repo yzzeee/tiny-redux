@@ -1,16 +1,26 @@
 import { createStore } from './redux.js';
 
-const INITIAL_STATE = { count: 0, users: [], post: {} };
+const INITIAL_STATE = { count: 0, users: [], post: {}, todo: {} };
 const ADD = 'ADD';
 const SUBTRACT = 'SUBTRACT';
 const SET_USERS = 'SET_USERS';
 const GET_USERS = 'GET_USERS';
 const SET_POST = 'SET_POST';
 const GET_POST = 'GET_POST';
+const SET_TODO = 'SET_TODO';
 
 function actionCreator(type, payload) {
   return { type, payload };
 }
+
+const middleware0 = state => dispatch => action => {
+  console.log('middleware0');
+  if (typeof action === 'function') {
+    action(dispatch);
+    return;
+  }
+  dispatch(action);
+};
 
 const middleware1 = state => dispatch => action => {
   console.log('middleware 1');
@@ -53,13 +63,19 @@ function reducer(state, action) {
       return { ...state, users: action.payload };
     case SET_POST:
       return { ...state, post: action.payload };
+    case SET_TODO:
+      return { ...state, todo: action.payload };
     default:
       console.log('해당 액션은 정의되지 않았습니다.');
       return state;
   }
 }
 
-const store = createStore(INITIAL_STATE, reducer, [middleware1, middleware2]);
+const store = createStore(INITIAL_STATE, reducer, [
+  middleware0,
+  middleware1,
+  middleware2,
+]);
 
 function listener() {
   console.log(store.getState());
@@ -78,3 +94,11 @@ dispatchAdd(7);
 
 store.dispatch(actionCreator(GET_USERS));
 store.dispatch(actionCreator(GET_POST, 5));
+
+const fetchTodos = id => dispatch => {
+  fetch(`https://jsonplaceholder.typicode.com/todos/${id}`)
+    .then(response => response.json())
+    .then(todo => dispatch(actionCreator(SET_TODO, todo)));
+};
+
+store.dispatch(fetchTodos(3));
